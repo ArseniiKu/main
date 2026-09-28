@@ -1,0 +1,29 @@
+---
+- name: Deploy app with environment-specific secrets
+  hosts: web
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Load dev secrets for dev hosts
+      include_vars:
+        file: ../secrets_dev.yml
+      when: inventory_hostname in groups['dev']
+
+    - name: Load prod secrets for prod hosts
+      include_vars:
+        file: ../secrets_prod.yml
+      when: inventory_hostname in groups['prod']
+
+    - name: Deploy app role
+      include_role:
+        name: app
+
+    - name: Show which secrets were loaded
+      debug:
+        msg: |
+          Host: {{ inventory_hostname }}
+          Environment: {{ 'dev' if inventory_hostname in groups['dev'] else 'prod' }}
+          DB password length: {{ db_password | length }}
+          API key starts with: {{ api_key[:7] }}...
+      no_log: true
