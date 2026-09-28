@@ -1,0 +1,4 @@
+---
+grafana_admin_password: "admin"
+prometheus_host: "mon"
+prometheus_port: 9090

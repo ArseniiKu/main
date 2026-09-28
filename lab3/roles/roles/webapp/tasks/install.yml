@@ -1,0 +1,19 @@
+---
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+  tags: [install, packages]
+
+- name: Install additional packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - curl
+    - wget
+    - python3
+  loop_control:
+    label: "{{ item }}"
+  tags: [install, packages]

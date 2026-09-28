@@ -1,0 +1,35 @@
+---
+- name: Full infrastructure deployment
+  hosts: web
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Show deployment info
+      debug:
+        msg: "Deploying to {{ ansible_hostname }} ({{ app_env }})"
+      tags: [always]
+
+  tasks:
+    - name: Deploy web application
+      include_role:
+        name: webapp
+      tags: [webapp]
+
+    - name: Manage users
+      include_role:
+        name: users
+      tags: [users]
+
+    - name: Apply hardening
+      include_role:
+        name: hardening
+      tags: [hardening]
+      when: app_env in ["staging", "production"]
+
+  post_tasks:
+    - name: Final verification
+      uri:
+        url: "http://localhost:{{ app_port }}"
+        status_code: 200
+      tags: [verify]

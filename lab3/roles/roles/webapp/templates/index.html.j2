@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ app_name }} - {{ app_env }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .info { background: #f0f0f0; padding: 20px; border-radius: 5px; }
+        .env-{{ app_env }} { border-left: 5px solid {% if app_env == 'production' %}red{% elif app_env == 'staging' %}orange{% else %}green{% endif %}; }
+    </style>
+</head>
+<body>
+    <h1>{{ app_name | upper }}</h1>
+    <div class="info env-{{ app_env }}">
+        <p><strong>Hostname:</strong> {{ ansible_hostname }}</p>
+        <p><strong>IP Address:</strong> {{ ansible_default_ipv4.address | default('N/A') }}</p>
+        <p><strong>Environment:</strong> {{ app_env }}</p>
+        <p><strong>Version:</strong> {{ app_version }}</p>
+        <p><strong>OS:</strong> {{ ansible_distribution }} {{ ansible_distribution_version }}</p>
+    </div>
+
+    <h2>Upstream Servers:</h2>
+    <ul>
+    {% for server in upstream_servers %}
+        <li>{{ server.name }} ({{ server.ip }}:{{ server.port }})</li>
+    {% endfor %}
+    </ul>
+
+    <footer>
+        <p>Deployed by Ansible at {{ ansible_date_time.iso8601 }}</p>
+    </footer>
+</body>
+</html>

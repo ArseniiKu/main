@@ -1,0 +1,34 @@
+# Server configuration for {{ ansible_hostname }}
+# Environment: {{ app_env }}
+
+server {
+    listen {{ app_port }};
+    server_name {{ ansible_hostname }}.example.com;
+
+    root /var/www/{{ app_name }};
+    index index.html;
+
+    {% if enable_debug %}
+    # Debug mode enabled
+    error_log /var/log/nginx/error.log debug;
+    {% else %}
+    error_log /var/log/nginx/error.log {{ log_level }};
+    {% endif %}
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location /api/ {
+        proxy_pass http://{{ app_name }}_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    {% if custom_header is defined %}
+    add_header {{ custom_header }};
+    {% endif %}
+
+    access_log /var/log/nginx/{{ app_name }}_{{ app_env }}.access.log;
+    error_log /var/log/nginx/{{ app_name }}_{{ app_env }}.error.log;
+}

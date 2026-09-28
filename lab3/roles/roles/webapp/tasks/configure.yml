@@ -1,0 +1,46 @@
+---
+- name: Create app directory
+  file:
+    path: /var/www/{{ app_name }}
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  tags: [configure]
+
+- name: Deploy index.html from template
+  template:
+    src: index.html.j2
+    dest: /var/www/{{ app_name }}/index.html
+    owner: www-data
+    group: www-data
+    mode: '0644'
+  tags: [configure, deploy]
+
+- name: Deploy main nginx config
+  template:
+    src: nginx-main.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload web config
+  tags: [configure]
+
+- name: Deploy site config from template
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/{{ app_name }}
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload web config
+  tags: [configure]
+
+- name: Enable site
+  file:
+    src: /etc/nginx/sites-available/{{ app_name }}
+    dest: /etc/nginx/sites-enabled/{{ app_name }}
+    state: link
+  notify: reload web config
+  tags: [configure]

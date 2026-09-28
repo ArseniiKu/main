@@ -1,0 +1,7 @@
+---
+- name: Deploy web application
+  hosts: web
+  become: yes
+  gather_facts: yes
+  roles:
+    - webapp

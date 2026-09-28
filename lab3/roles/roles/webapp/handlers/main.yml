@@ -1,0 +1,13 @@
+---
+- name: Test nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  listen: "reload web config"
+
+- name: Reload nginx
+  systemd:
+    name: nginx
+    state: reloaded
+  listen: "reload web config"
+  when: nginx_test.rc is defined and nginx_test.rc == 0

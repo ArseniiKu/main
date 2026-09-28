@@ -1,0 +1,18 @@
+# Main nginx configuration for {{ ansible_hostname }}
+# Environment: {{ app_env }}
+
+worker_processes {{ nginx_worker_processes }};
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+}
+
+http {
+    upstream {{ app_name }}_backend {
+    {% for server in upstream_servers %}
+        server {{ server.ip }}:{{ server.port }};
+    {% endfor %}
+    }
+
+    include /etc/nginx/sites-enabled/*;
+}

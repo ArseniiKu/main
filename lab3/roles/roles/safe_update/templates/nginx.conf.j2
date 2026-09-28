@@ -1,0 +1,32 @@
+# Updated by safe_update role at {{ ansible_date_time.iso8601 }}
+# Environment: {{ app_env | default('unknown') }}
+
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections {{ nginx_worker_connections | default(768) }};
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    upstream {{ app_name | default('myapp') }}_backend {
+    {% for server in upstream_servers | default([]) %}
+        server {{ server.ip }}:{{ server.port }};
+    {% endfor %}
+    }
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
