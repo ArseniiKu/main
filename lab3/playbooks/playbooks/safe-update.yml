@@ -1,8 +1,0 @@
----
-- name: Safe nginx update with rollback
-  hosts: web
-  become: yes
-  vars:
-    simulate_failure: false
-  roles:
-    - safe_update
