@@ -1,88 +1,80 @@
 # Отчёт по заданию B2: Тестирование ролей через Molecule
 
 
-### 1. Что такое Molecule и зачем он нужен?
+1. Что такое Molecule и зачем он нужен?
 
-**Molecule** — это фреймворк для автоматического тестирования Ansible-ролей. Он:
-- Создаёт временные контейнеры/VM (Docker, Vagrant, EC2, etc.)
-- Применяет тестируемую роль
-- Запускает тесты (testinfra, goss, inspec)
-- Удаляет тестовые ресурсы
+Molecule — фреймворк для автоматического тестирования Ansible-ролей. Он создаёт временные контейнеры или ВМ (Docker, Vagrant, EC2 и т. п.), применяет к ним тестируемую роль, запускает проверки (testinfra, goss, inspec) и затем удаляет тестовые ресурсы.
 
-**Зачем нужен:**
-- **Гарантия качества:** Роль работает не только на машине разработчика
-- **Регрессионное тестирование:** Изменения не ломают существую…тестируемой роли к контейнерам
-7. **idempotence** — проверка идемпотентности (повторный запуск без изменений)
-8. **side_effect** — дополнительные действия (опционально)
-9. **verify** — запуск тестов (testinfra, goss)
-10. **cleanup** — очистка после тестов
-11. **destroy** — удаление контейнеров/VM
+Зачем:
 
-**Для отладки можно запускать по отдельности:**
-```bash
-molecule create      # только создать
-molecule converge    # применить роль
-molecule verify      # запустить тесты
-molecule destroy     # удалить
+качество — роль проверяется не только на машине разработчика;
 
-. Что такое testinfra и как он работает?
-Testinfra — это Python-библиотека для тестирования инфраструктуры в стиле pytest.
+регрессионное тестирование — изменения не ломают то, что уже работало;
+
+идемпотентность — повторный запуск не должен вносить изменений.
+
+Типовой сценарий включает этапы: создание (create), применение роли (converge), проверка идемпотентности (idempotence), дополнительные действия (side_effect), тесты (verify), очистка (cleanup) и удаление (destroy). Для отладки этапы можно запускать по отдельности:
+
+bash
+molecule create    # только создать
+molecule converge  # применить роль
+molecule verify    # запустить тесты
+molecule destroy   # удалить
+2. Что такое testinfra и как он работает?
+
+Testinfra — Python-библиотека для тестирования инфраструктуры в стиле pytest.
+
 Как работает:
 
-    Подключается к хосту (через SSH, Docker API, paramiko)
-    Предоставляет API для проверки состояния системы
-    Выполняет assertions (утверждения) в стиле pytest
+Подключается к хосту (SSH, Docker API, paramiko).
+
+Даёт API для проверки состояния системы.
+
+Выполняет assertions в стиле pytest.
 
 Примеры проверок:
+
+python
 def test_nginx_installed(host):
     nginx = host.package("nginx")
-    assert nginx.is_installed  # Проверка установки пакета
+    assert nginx.is_installed
 
 def test_nginx_running(host):
     nginx = host.service("nginx")
-    assert nginx.is_running    # Проверка запущенного сервиса
-    assert nginx.is_enabled    # Проверка автозагрузки
+    assert nginx.is_running
+    assert nginx.is_enabled
 
 def test_port_80(host):
-    assert host.socket("tcp://0.0.0.0:80").is_listening  # Проверка порта
+    assert host.socket("tcp://0.0.0.0:80").is_listening
 
 def test_file_exists(host):
     f = host.file("/etc/nginx/nginx.conf")
     assert f.exists
     assert f.user == "root"
     assert f.mode == 0o644
-Преимущества:
+Преимущества: простой Python-синтаксис, интеграция с pytest (отчёты, фикстуры), поддержка разных бэкендов (Docker, SSH, локальный).
 
-    Простой Python-синтаксис
-    Интеграция с pytest (отчёты, fixtures)
-    Поддержка множества бэкендов (Docker, SSH, local)
+3. Почему важно тестировать роль на разных ОС (Ubuntu, Debian)?
 
-4. Почему важно тестировать роль на разных ОС (Ubuntu, Debian)?
-Причины мультиплатформенного тестирования:
+Потому что между дистрибутивами есть различия, которые ломают «универсальные» роли:
 
-    Разные пакетные менеджеры:
-        Ubuntu/Debian: apt
-        CentOS/RHEL: yum/dnf
-        Alpine: apk
-    Разные пути к конфигам:
-        Ubuntu: /etc/nginx/nginx.conf
-        CentOS: /etc/nginx/nginx.conf (может отличаться)
-        Alpine: /etc/nginx/nginx.conf
-    Разные имена сервисов:
-        Ubuntu: nginx
-        CentOS: nginx или httpd
-    Разные версии systemd:
-        Ubuntu 24.04: systemd 255
-        Debian 12: systemd 252
-        CentOS 9: systemd 252
-    Разные версии пакетов:
-        Ubuntu 24.04: nginx 1.24
-        Debian 12: nginx 1.22
+пакетные менеджеры: apt (Ubuntu/Debian), yum/dnf (CentOS/RHEL), apk (Alpine);
 
-Best practice: Тестировать минимум на 2-3 дистрибутивах перед публикацией.
-5. Как бы вы интегрировали Molecule в GitLab CI?
+пути к конфигам: могут отличаться в зависимости от дистрибутива;
+
+имена сервисов: nginx или httpd (CentOS);
+
+версии systemd: Ubuntu 24.04 — 255, Debian 12 и CentOS 9 — 252;
+
+версии пакетов: nginx 1.24 в Ubuntu 24.04, 1.22 в Debian 12.
+
+Best practice: тестировать минимум на 2–3 дистрибутивах до публикации.
+
+4. Как интегрировать Molecule в GitLab CI?
+
 Пример .gitlab-ci.yml:
 
+yaml
 stages:
   - test
   - deploy
@@ -91,7 +83,7 @@ test_role:
   stage: test
   image: python:3.12
   services:
-    - docker:24-dind  # Docker-in-Docker для запуска контейнеров
+    - docker:24-dind  # Docker-in-Docker для контейнеров
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
@@ -104,7 +96,7 @@ test_role:
   rules:
     - changes:
         - roles/nginx/**/*
-    - when: manual  # Запуск вручную или при изменениях
+      when: manual
 
 deploy:
   stage: deploy
@@ -112,12 +104,14 @@ deploy:
     - ansible-playbook deploy.yml
   only:
     - main
+Ключевые моменты:
 
-лючевые моменты:
+использовать docker:dind для запуска контейнеров внутри CI;
 
-    Использовать docker:dind (Docker-in-Docker) для запуска контейнеров внутри CI
-    Кэшировать pip-пакеты для ускорения
-    Запускать тесты только при изменениях в роли (changes:)
-    Использовать rules: для условного запуска
+кэшировать pip-пакеты для ускорения;
 
-Альтернатива: GitHub Actions с ubuntu-latest runner и Docker.
+запускать тесты только при изменениях в роли (changes:);
+
+применять rules: для условного запуска.
+
+Альтернатива — GitHub Actions с исполнителем ubuntu-latest и Docker.
