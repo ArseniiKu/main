@@ -66,12 +66,6 @@ State-файл содержит секреты в открытом виде. П�
 
 **Решение:** remote backend с шифрованием, HashiCorp Vault, `.gitignore` для `.tfstate`.
 
-## Скриншоты
 
-<img width="1280" height="800" alt="image" src="https://github.com/user-attachments/assets/c39fdbd6-da0e-46f0-8e51-696db6fc24ef" />
-
-
-
-<img width="1280" height="800" alt="image" src="https://github.com/user-attachments/assets/7e0f849f-589d-4fad-a5e8-b91f470b8a19" />
 
 
