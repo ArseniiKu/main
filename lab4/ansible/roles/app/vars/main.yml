@@ -1,5 +1,0 @@
----
-# Эти переменные будут переопределены из secrets.yml
-db_password: "CHANGE_ME_IN_VAULT"
-api_key: "CHANGE_ME_IN_VAULT"
-jwt_secret: "CHANGE_ME_IN_VAULT"

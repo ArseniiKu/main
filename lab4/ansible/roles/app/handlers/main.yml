@@ -1,5 +1,0 @@
----
-- name: restart app
-  systemd:
-    name: "{{ app_name }}"
-    state: restarted
