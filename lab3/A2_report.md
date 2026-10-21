@@ -7,59 +7,72 @@
 
 ## Вопросы и ответы
 
-### 1. Объясните приоритет переменных в Ansible (от низшего к высшему, минимум 5 уровней)
+1. Приоритет переменных в Ansible (от низшего к высшему, минимум 5 уровней)
 
-1. **role defaults** (`roles/webapp/defaults/main.yml`)
-2. **inventory group_vars** (`inventory/group_vars/web.yml`)
-3. **inventory host_vars** (`inventory/host_vars/node1.yml`)
-4. **playbook vars**
-5. **extra vars** (`-e` в командной строке)
+Значения по умолчанию для роли (roles/webapp/defaults/main.yml) — самый низкий приоритет.
 
-### 2. В чём разница между `host_vars` и `group_vars`?
+Переменные группы из инвентаря (inventory/group_vars/web.yml).
 
-- **`group_vars`** — применяет переменные ко всей группе хостов (например, ко всем web-серверам)
-- **`host_vars`** — переопределяет или добавляет переменные для одного конкретного хоста (например, только для node1)
+Переменные конкретного хоста (inventory/host_vars/node1.yml).
 
-### 3. Что делает `when` в задачах? Приведите 2 примера из вашей работы.
+Переменные, заданные в самом плейбуке (vars:).
 
-`when` — условное выполнение задачи.
+Extra vars (-e в командной строке) — перекрывают всё остальное.
 
-**Пример 1:** Установка debug-инструментов только в development:
-```yaml
+2. Чем host_vars отличаются от group_vars?
+
+group_vars задают переменные для целой группы хостов — например, для всех веб-серверов сразу. host_vars действуют точечно: только на один хост, и обычно используются, чтобы переопределить общее значение или добавить что-то уникальное (скажем, только для node1).
+
+3. Что делает when? Два примера из работы.
+
+when включает задачу по условию — если оно ложно, задача пропускается.
+
+Пример 1 — debug-инструменты только в разработке:
+
+yaml
 - name: Install debug tools
   apt:
     name: [htop, strace, tcpdump]
     state: present
   when: app_env == "development"
-```
-Пример 2: Добавление заголовка, только если он определён:
+Пример 2 — заголовок добавляется, только если переменная задана:
 
-- name: Add custom header
+yaml
+- name: Добавить пользовательскую строку заголовка
   lineinfile:
     path: /etc/nginx/nginx.conf
     line: "add_header {{ custom_header }}"
   when: custom_header is defined
-  
-4. В чём разница между loop и with_items?
-loop — современный, рекомендуемый способ итерации (Ansible 2.6+)
-with_items — устаревший синтаксис, под капотом преобразуется в loop
-5. Зачем нужен loop_control.label?
-Делает вывод консоли читаемым. Вместо вывода всего словаря при каждой итерации показывает только имя:
+4. Чем loop отличается от with_items?
 
+loop — актуальный и рекомендуемый способ перебора (с Ansible 2.6+). with_items — устаревший синтаксис, который внутри всё равно приводится к loop. Функционально близки, но использовать стоит loop.
+
+5. Зачем нужен loop_control.label?
+
+Чтобы вывод в консоль был читаемым. Без него на каждой итерации печатается весь словарь item, с label — только нужное поле:
+
+yaml
 loop_control:
   label: "{{ item.username }}"
+6. Что делают --tags и --skip-tags?
 
-  6. Что делают --tags и --skip-tags при запуске плейбука?
---tags info — выполнить только задачи с тегом info
---skip-tags hardening — выполнить всё, КРОМЕ задач с тегом hardening
-7. Как бы вы добавили третье окружение (production)?
-Добавить группу [production] в hosts.ini
-Создать файл inventory/group_vars/production.yml:
+--tags info — выполнить только задачи с тегом info.
+
+--skip-tags hardening — выполнить всё, кроме задач с тегом hardening.
+
+7. Как добавить третье окружение (production)?
+
+В hosts.ini добавить группу [production] с хостами.
+
+Создать inventory/group_vars/production.yml:
+
+yaml
 app_env: production
 enable_ssl: true
 enable_auth: true
 nginx_worker_connections: 4096
 log_level: warn
+Дальше запускать плейбук с ограничением на эту группу (-l production) или через соответствующий inventory.
 
 Результаты выполнения
 
