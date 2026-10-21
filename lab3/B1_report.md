@@ -1,6 +1,5 @@
 Отчёт B1: include/import 
-Выполнил: Кучин Арсений
-Дата: 28 сентября 2026
+
 
 1. Чем include_tasks отличается от import_tasks?
 
