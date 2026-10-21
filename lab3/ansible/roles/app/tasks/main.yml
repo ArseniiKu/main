@@ -1,0 +1,76 @@
+---
+- name: Install application dependencies
+  apt:
+    name: [python3, python3-pip, python3-venv]
+    state: present
+    update_cache: yes
+
+- name: Create app directory
+  file:
+    path: /opt/{{ app_name }}
+    state: directory
+    owner: "{{ app_user }}"
+    mode: '0755'
+
+- name: Deploy application config
+  template:
+    src: app.conf.j2
+    dest: /opt/{{ app_name }}/config.ini
+    owner: "{{ app_user }}"
+    mode: '0600'
+  notify: restart app
+
+- name: Create simple Python app
+  copy:
+    content: |
+      #!/usr/bin/env python3
+      from http.server import HTTPServer, BaseHTTPRequestHandler
+      import configparser
+
+      config = configparser.ConfigParser()
+      config.read('/opt/{{ app_name }}/config.ini')
+
+      class AppHandler(BaseHTTPRequestHandler):
+          def do_GET(self):
+              self.send_response(200)
+              self.send_header('Content-type', 'text/html')
+              self.end_headers()
+              db_host = config['database']['host']
+              self.wfile.write(f"<h1>App connected to DB: {db_host}</h1>".encode())
+
+      HTTPServer(('0.0.0.0', {{ app_port }}), AppHandler).serve_forever()
+    dest: /opt/{{ app_name }}/app.py
+    owner: "{{ app_user }}"
+    mode: '0755'
+
+- name: Create systemd service
+  copy:
+    content: |
+      [Unit]
+      Description={{ app_name }} Application
+      After=network.target
+
+      [Service]
+      Type=simple
+      User={{ app_user }}
+      ExecStart=/usr/bin/python3 /opt/{{ app_name }}/app.py
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/{{ app_name }}.service
+    mode: '0644'
+  notify: restart app
+
+- name: Create admin user
+  user:
+    name: admin
+    password: "{{ admin_password | string | password_hash('sha512') }}"
+    state: present
+
+- name: Ensure app is running
+  systemd:
+    name: "{{ app_name }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes

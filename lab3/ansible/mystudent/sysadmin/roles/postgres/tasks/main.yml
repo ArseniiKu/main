@@ -1,0 +1,4 @@
+---
+- name: Placeholder task
+  debug:
+    msg: "Role {{ role_name }} executed"

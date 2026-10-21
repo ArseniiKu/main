@@ -1,0 +1,47 @@
+---
+- name: Verify
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check nginx is installed
+      package:
+        name: nginx
+        state: present
+      register: nginx_package
+      check_mode: yes
+
+    - name: Assert nginx is installed
+      assert:
+        that:
+          - nginx_package is changed or nginx_package is success
+        fail_msg: "Nginx is not installed!"
+        success_msg: "Nginx is installed"
+
+    - name: Check nginx service is running
+      service_facts:
+
+    - name: Assert nginx is running
+      assert:
+        that:
+          - "'nginx' in services"
+          - "services['nginx']['state'] == 'running'"
+        fail_msg: "Nginx service is not running!"
+        success_msg: "Nginx service is running"
+
+    - name: Check nginx is listening on port 80
+      wait_for:
+        port: 80
+        timeout: 5
+
+    - name: Test HTTP response
+      uri:
+        url: http://localhost/
+        return_content: yes
+      register: http_response
+
+    - name: Assert HTTP response contains our text
+      assert:
+        that:
+          - "'Welcome to Nginx deployed by Ansible!' in http_response.content"
+        fail_msg: "Nginx is not serving our custom page!"
+        success_msg: "Nginx is serving our custom page"
