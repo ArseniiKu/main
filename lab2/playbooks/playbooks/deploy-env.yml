@@ -1,0 +1,25 @@
+---
+- name: Deploy environment-specific configuration
+  hosts: web
+  become: yes
+  gather_facts: yes
+  roles:
+    - webapp
+    - users
+
+  tasks:
+    - name: Show current environment
+      debug:
+        msg: |
+          Host: {{ ansible_hostname }}
+          Environment: {{ app_env }}
+          Debug: {{ enable_debug | default(false) }}
+          Workers: {{ nginx_worker_connections }}
+      tags: [info]
+
+    - name: Create debug directory (only if debug enabled)
+      file:
+        path: /var/log/debug
+        state: directory
+      when: enable_debug | default(false)
+      tags: [debug]

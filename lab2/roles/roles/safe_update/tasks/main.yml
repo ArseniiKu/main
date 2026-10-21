@@ -1,0 +1,79 @@
+---
+- name: Safe nginx update with rollback
+  block:
+    - name: Backup current config
+      copy:
+        src: /etc/nginx/nginx.conf
+        dest: "/etc/nginx/nginx.conf.backup.{{ ansible_date_time.epoch }}"
+        remote_src: yes
+
+    - name: Deploy new config
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+      notify: reload nginx
+
+    - name: Test nginx config
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Simulate random failure (for demo)
+      command: /bin/false
+      when: simulate_failure | default(false) | bool
+
+    - name: Notify success
+      debug:
+        msg: "✅ Nginx updated successfully on {{ ansible_hostname }}"
+
+  rescue:
+    - name: Notify failure
+      debug:
+        msg: "❌ Nginx update FAILED on {{ ansible_hostname }}! Rolling back..."
+
+    - name: Find latest backup
+      find:
+        paths: /etc/nginx
+        patterns: "nginx.conf.backup.*"
+      register: backups
+
+    - name: Restore from backup
+      copy:
+        src: "{{ (backups.files | sort(attribute='mtime') | last).path }}"
+        dest: /etc/nginx/nginx.conf
+        remote_src: yes
+      when: backups.files | length > 0
+      notify: reload nginx
+
+    - name: Save error log
+      copy:
+        content: |
+          FAILURE on {{ ansible_hostname }}
+          Time: {{ ansible_date_time.iso8601 }}
+          Error: {{ ansible_failed_result.msg | default('unknown') }}
+        dest: /var/log/nginx_update_failure.log
+        mode: '0644'
+
+    - name: Fail the play with meaningful message
+      fail:
+        msg: "Update failed and was rolled back. Check /var/log/nginx_update_failure.log"
+
+  always:
+    - name: Cleanup old backups (keep last 5)
+      find:
+        paths: /etc/nginx
+        patterns: "nginx.conf.backup.*"
+      register: all_backups
+
+    - name: Remove old backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ (all_backups.files | sort(attribute='mtime') | reverse | list)[5:] }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: all_backups.files | length > 5
+
+    - name: Final status
+      debug:
+        msg: "Update process completed on {{ ansible_hostname }}"

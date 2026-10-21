@@ -1,0 +1,12 @@
+---
+- name: Устанавливаем Node Exporter
+  apt:
+    name: prometheus-node-exporter
+    state: present
+    update_cache: yes
+
+- name: Запускаем и добавляем в автозагрузку
+  systemd:
+    name: prometheus-node-exporter
+    state: started
+    enabled: yes

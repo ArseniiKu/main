@@ -1,0 +1,12 @@
+---
+- name: Install packages
+  import_tasks: install.yml
+  tags: [install]
+
+- name: Configure application
+  import_tasks: configure.yml
+  tags: [configure]
+
+- name: Manage service
+  import_tasks: service.yml
+  tags: [service]

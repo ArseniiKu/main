@@ -1,0 +1,7 @@
+---
+- name: Ensure nginx is running
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  tags: [service]

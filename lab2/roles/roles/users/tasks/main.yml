@@ -1,0 +1,48 @@
+---
+- name: Create groups
+  group:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - developers
+    - monitoring
+  loop_control:
+    label: "{{ item }}"
+
+- name: Create users
+  user:
+    name: "{{ item.username }}"
+    comment: "{{ item.fullname }}"
+    groups: "{{ item.groups | join(',') }}"
+    shell: "{{ item.shell }}"
+    create_home: yes
+    state: present
+  loop: "{{ dev_users }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Create personalized welcome message
+  copy:
+    content: |
+      Welcome {{ item.fullname }}!
+      You are logged into {{ ansible_hostname }}
+      Your groups: {{ item.groups | join(', ') }}
+      Environment: {{ app_env }}
+    dest: "/home/{{ item.username }}/WELCOME.txt"
+    owner: "{{ item.username }}"
+    mode: '0644'
+  loop: "{{ dev_users }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Install debug tools (only in dev)
+  apt:
+    name: [htop, strace, tcpdump]
+    state: present
+  when: app_env == "development"
+
+- name: Install monitoring tools (in staging and prod)
+  apt:
+    name: [prometheus-node-exporter]
+    state: present
+  when: app_env in ["staging", "production"]

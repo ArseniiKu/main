@@ -1,0 +1,22 @@
+---
+dev_users:
+  - username: alice
+    fullname: "Alice Smith"
+    groups: [developers, sudo]
+    shell: /bin/bash
+  - username: bob
+    fullname: "Bob Johnson"
+    groups: [developers]
+    shell: /bin/bash
+  - username: charlie
+    fullname: "Charlie Brown"
+    groups: [developers, monitoring]
+    shell: /bin/bash
+  - username: diana
+    fullname: "Diana Prince"
+    groups: [developers, sudo]
+    shell: /bin/bash
+  - username: eve
+    fullname: "Eve Adams"
+    groups: [developers]
+    shell: /bin/bash

@@ -1,0 +1,14 @@
+---
+- name: Deploy Node Exporter
+  hosts: web,monitoring
+  become: yes
+  tasks:
+    - name: Run Node Exporter container
+      docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9100:9100"
+        network_mode: host

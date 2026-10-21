@@ -1,0 +1,22 @@
+---
+- name: Disable SSH password authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config.d/99-hardening.conf
+    line: "PasswordAuthentication no"
+    create: yes
+  notify: restart ssh
+  when: harden_ssh | default(true)
+  tags: [hardening, ssh]
+
+- name: Install fail2ban
+  apt:
+    name: fail2ban
+    state: present
+  tags: [hardening, security]
+
+- name: Ensure fail2ban is running
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+  tags: [hardening, security]
