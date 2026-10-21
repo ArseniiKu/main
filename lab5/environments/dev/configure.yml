@@ -1,0 +1,17 @@
+---
+- name: Configure Web Server
+  hosts: web_servers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: no
+
+    - name: Deploy custom index.html
+      copy:
+        content: |
+          <h1>Managed by Ansible,
