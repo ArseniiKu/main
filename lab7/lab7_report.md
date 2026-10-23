@@ -76,81 +76,82 @@ Traefik успешно маршрутизирует HTTP-запросы на у�
 На скриншоте видно правило маршрутизации для app.local с path /.
 ```
 Ответы на контрольные вопросы
-Вопрос 1: Почему значения в Secret хранятся в base64, а не в зашифрованном виде? Как прочитать содержимое Secret одной командой kubectl?
-Ответ:
-Kubernetes хранит Secrets в base64 по умолчанию, потому что:
-`
-    Base64 — это кодировка, а не шифрование. Она нужна для безопасной передачи бинарных данных через JSON/YAML (избегает проблем со спецсимволами).
-    Историческая причина: Kubernetes спроектирован так, что безопасность должна обеспечиваться на уровне etcd (шифрование at-rest), RBAC (контроль доступа) и network policies. Сам по себе Secret — это просто "пометка" для администратора, что данные конфиденциальны.
-    Для реального шифрования в production используют:
-        External Secrets Operator (интеграция с AWS Secrets Manager, HashiCorp Vault)
-        EncryptionConfiguration для etcd (шифрование на уровне хранилища)
-        Sealed Secrets (шифрование Secrets для хранения в Git)
+Вопрос 1. Почему значения Secret хранятся в base64, а не в зашифрованном виде? Как прочитать содержимое Secret одной командой?
+Base64 — это кодирование, а не шифрование. Его задача — представить произвольные двоичные данные в виде текста, пригодного для JSON/YAML, чтобы избежать проблем со спецсимволами. Kubernetes изначально исходит из того, что конфиденциальность обеспечивается на других уровнях: шифрованием etcd, RBAC и сетевыми политиками. Сам Secret — скорее маркер для администратора, чем средство защиты.
 
-Команда для чтения Secret:
-# Декодировать конкретное значение
+Для реальной защиты в продакшене применяют:
+
+External Secrets Operator (интеграция с AWS Secrets Manager, HashiCorp Vault);
+
+EncryptionConfiguration для etcd — шифрование на уровне хранилища;
+
+Sealed Secrets — шифрование Secrets для хранения в Git.
+
+Чтение Secret одной командой:
+
 kubectl get secret db-credentials -o jsonpath='{.data.DB_USER}' | base64 --decode
-# Вывод: admin
+# admin
 
-# Или посмотреть все значения сразу
-kubectl get secret db-credentials -o yaml
-# Затем декодировать каждое поле вручную
-Вопрос 2: Что произойдет, если в Части B поставить replicas: 2 для PVC с режимом ReadWriteOnce?
-Ответ:
-При replicas: 2 и PVC с accessModes: ReadWriteOnce произойдет следующее:
-``
-    Первый под успешно запустится и смонтирует PVC.
-    Второй под останется в статусе Pending с ошибкой:
-   Warning  FailedScheduling  ...  0/3 nodes are available: 
-   pod has unbound immediate PersistentVolumeClaims.
-При попытке описать под:
-   kubectl describe pod <second-pod>
-   В событиях будет видно:
-   Multi-Attach error for volume "pvc-..." 
-   Volume is already exclusively attached to one node and can't be attached to another
-Причина: Режим ReadWriteOnce (RWO) означает, что том может быть примонтирован только к одному узлу одновременно. Это ограничение большинства локальных хранилищ (local-path, NFS в режиме RWO).
-Решения:
-`
-    Использовать ReadWriteMany (RWX) — требует NFS или CephFS
-    Использовать StatefulSet вместо Deployment (каждый под получает свой PVC)
-    Оставить replicas: 1 для stateful-приложений
+Либо вывести весь объект (kubectl get secret db-credentials -o yaml) и декодировать нужные поля вручную.
 
-Вопрос 3: Какую роль играет ingressClassName: traefik? Что было бы, если бы мы его не указали?
-Ответ:
-Роль ingressClassName:
-`
-    Указывает Kubernetes, какой Ingress Controller должен обрабатывать этот Ingress-ресурс.
-    В кластере может быть несколько Ingress Controllers (Traefik, Nginx Ingress, HAProxy, etc.).
-    ingressClassName: traefik говорит: "Используй Traefik для маршрутизации этого Ingress".
+Вопрос 2. Что произойдёт, если в части B указать replicas: 2 для PVC с режимом ReadWriteOnce?
+Первый под смонтирует PVC и запустится. Второй останется в Pending: планировщик не сможет разместить его, поскольку том уже подключён к одному узлу. В событиях пода будет Multi-Attach error for volume "pvc-...", а в describe — сообщение о несвязанных немедленных PVC.
 
-Если не указать:
-`
-    Вариант А: Если в кластере только один Ingress Controller (Traefik), он может быть назначен по умолчанию (если у него есть аннотация ingressclass.kubernetes.io/is-default-class: "true"). В K3s Traefik обычно является default.
-    Вариант Б: Если есть несколько контроллеров или нет default — Ingress останется в статусе без адреса, и маршрутизация не заработает.
-    Вариант В: В старых версиях Kubernetes использовались аннотации (kubernetes.io/ingress.class: traefik), но сейчас это deprecated.
+Причина в семантике ReadWriteOnce: том может быть подключён только к одному узлу одновременно — это ограничение большинства локальных хранилищ (включая local-path).
 
-Рекомендация: Всегда явно указывать ingressClassName для избежания неоднозначности.
-Вопрос 4: Скриншот HTTP Routers в Traefik Dashboard
-На скриншоте видно правило:
+Варианты решения:
 
+использовать ReadWriteMany (нужен NFS или CephFS);
 
-Rule: Host(`app.local`) && PathPrefix(`/`)
-Что это означает:
+перейти на StatefulSet — каждый под получит собственный PVC;
 
-    Host(app.local) — Traefik проверяет HTTP-заголовок Host и сравнивает с app.local. Если запрос пришел на другой домен (например, example.com), правило не сработает.
-    PathPrefix(/) — Traefik проверяет URL-путь. PathPrefix("/") означает "любой путь, начинающийся с /" (то есть вообще любой путь).
-    && — логическое И: оба условия должны выполняться одновременно.
-Дополнительные примеры правил:
+оставить replicas: 1 для stateful-приложений.
 
-    Host(app.local) && PathPrefix(/api) — только пути /api/*
-    Host(app.local) || Host(www.app.local) — оба домена
-    PathPrefix(/static) && Method(GET) — только GET-запросы на /static/*
+Вопрос 3. Какую роль играет ingressClassName: traefik? Что было бы без него?
+ingressClassName указывает, какой Ingress-контроллер должен обрабатывать данный Ingress. В кластере может быть несколько контроллеров (Traefik, Nginx Ingress, HAProxy), и это поле снимает неоднозначность: traefik означает «маршрутизируй через Traefik».
+
+Если поле не указать:
+
+Вариант А: при единственном контроллере с аннотацией ingressclass.kubernetes.io/is-default-class: "true" он будет выбран по умолчанию. В K3s Traefik обычно и есть контроллер по умолчанию.
+
+Вариант Б: при нескольких контроллерах без default Ingress останется без адреса, и маршрутизация не заработает.
+
+Вариант В: в старых версиях Kubernetes использовалась аннотация kubernetes.io/ingress.class: traefik, но она устарела.
+
+Рекомендация — указывать ingressClassName явно, чтобы поведение было предсказуемым.
+
+Вопрос 4. Скриншот HTTP-маршрутизаторов в Traefik Dashboard
+На скриншоте видно правило: 
+
+Host(app.local) && PathPrefix(/)
+
+Что оно означает:
+
+Host(app.local) — Traefik сравнивает HTTP-заголовок Host с app.local; запросы на другой домен правило не пройдут.
+
+PathPrefix(/) — проверяется URL-путь; / означает «любой путь, начинающийся с /», то есть фактически любой.
+
+&& — логическое И: оба условия должны выполняться одновременно.
+
+Другие примеры правил:
+
+Host(app.local) && PathPrefix(/api) — только пути /api/*;
+
+Host(app.local) || Host(www.app.local) — оба домена;
+
+PathPrefix(/static) && Method(GET) — только GET-запросы на /static/*.
+
 Выводы
-`
-    ConfigMaps и Secrets позволяют отделять конфигурацию от кода приложения (12-Factor App methodology).
-    Persistent Volumes обеспечивают сохранность данных при перезапуске подов, что критично для stateful-приложений (БД, файловые хранилища).
-    Ingress (Traefik) предоставляет маршрутизацию на уровне L7 (HTTP), позволяя направлять трафик на разные сервисы по домену и пути.
-    Traefik Dashboard дает визуальное представление о маршрутизации и помогает в отладке.
-    Безопасность: Secrets в Kubernetes по умолчанию не зашифрованы — для production нужна дополнительная защита (etcd encryption, External Secrets Operator).
+ConfigMaps и Secrets позволяют отделить конфигурацию от кода приложения (подход 12-Factor App).
 
-Кластер готов к развертыванию production-приложений с полным набором функций Kubernetes!
+Persistent Volumes обеспечивают сохранность данных при пересоздании подов — это критично для stateful-приложений (БД, файловые хранилища).
+
+Ingress (Traefik) реализует маршрутизацию на уровне L7, направляя трафик на разные сервисы по домену и пути.
+
+Traefik Dashboard даёт наглядное представление о маршрутизации и упрощает отладку.
+
+Секреты в Kubernetes по умолчанию не зашифрованы — для продакшена нужна дополнительная защита (шифрование etcd, External Secrets Operator).
+
+Кластер готов к развёртыванию продакшен-приложений с полным набором возможностей Kubernetes.
+
+
