@@ -70,6 +70,7 @@ $ curl http://10.3.51.1:31084 -H "Host: app.local"
 <p>Environment: Production</p>
 Traefik успешно маршрутизирует HTTP-запросы на уровне L7.
 ```
+
 Часть D: Traefik Dashboard
 Что сделано:
 
