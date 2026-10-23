@@ -36,6 +36,7 @@ MY_DB_PASS=super_secret_password
 $ kubectl exec $POD -- cat /usr/share/nginx/html/index.html
 <h1>Hello from ConfigMap!</h1>
 <p>Environment: Production</p>
+```
 Часть B: Persistent Volumes
 Что сделано:
 
@@ -54,6 +55,7 @@ $ kubectl delete pod $POD
 $ kubectl exec $NEW_POD -- cat /usr/share/nginx/html/data.txt
 Persistent Data Test 123
 Вывод: Данные сохранились после пересоздания пода, что подтверждает работу PVC.
+```
 Часть C: Ingress и Traefik
 Что сделано:
 
@@ -61,12 +63,13 @@ Persistent Data Test 123
     Создан Ingress my-ingress с правилом маршрутизации для app.local
     Добавлена запись в /etc/hosts: 10.3.51.1 app.local
     Изменен тип Service Traefik на NodePort (порт 31084)
-
+```
 Результаты проверки:
 $ curl http://10.3.51.1:31084 -H "Host: app.local"
 <h1>Hello from ConfigMap!</h1>
 <p>Environment: Production</p>
 Traefik успешно маршрутизирует HTTP-запросы на уровне L7.
+```
 Часть D: Traefik Dashboard
 Что сделано:
 
