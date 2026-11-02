@@ -1,0 +1,8 @@
+replicaCount: 3
+app:
+  title: "My App - PROD"
+  environment: "production"
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi

@@ -1,0 +1,8 @@
+replicaCount: 1
+app:
+  title: "My App - DEV"
+  environment: "development"
+resources:
+  limits:
+    cpu: 50m
+    memory: 64Mi
