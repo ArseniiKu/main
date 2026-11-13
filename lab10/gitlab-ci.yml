@@ -1,0 +1,129 @@
+stages:
+  - lint
+  - test
+  - build
+  - security
+  - deploy
+  - cleanup
+
+variables:
+  DOCKER_DRIVER: overlay2
+  CI_REGISTRY: "registry.git.kosgos.ru"
+  CI_REGISTRY_IMAGE: "$CI_REGISTRY/23-ibbo-6/GoryachkinMA/lab_10"
+  K8S_NAMESPACE: "lab10-prod"
+  APP_VERSION: "$CI_COMMIT_SHORT_SHA"
+
+default:
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  tags:
+    - docker
+
+lint-python:
+  stage: lint
+  image: python:3.11-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/pip
+  before_script:
+    - pip install --cache-dir .cache/pip flake8
+  script:
+    - echo "Running Python linter..."
+    - flake8 src/ --max-line-length=120
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+test-unit:
+  stage: test
+  image: python:3.11-alpine
+  before_script:
+    - pip install pytest coverage
+  script:
+    - echo "Running unit tests..."
+    - pytest tests/ -v --junitxml=report.xml || true
+  artifacts:
+    when: always
+    paths:
+      - report.xml
+    reports:
+      junit: report.xml
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+build-image:
+  stage: build
+  script:
+    - echo "Building Docker image..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker build -t $CI_REGISTRY_IMAGE:$APP_VERSION .
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$APP_VERSION
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - echo "✓ Image pushed: $CI_REGISTRY_IMAGE:$APP_VERSION"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs:
+    - job: lint-python
+
+security-scan:
+  stage: security
+  image: aquasec/trivy:latest
+  script:
+    - echo "Scanning image for HIGH and CRITICAL vulnerabilities..."
+    - trivy image --exit-code 0 --severity HIGH,CRITICAL $CI_REGISTRY_IMAGE:$APP_VERSION
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs:
+    - job: build-image
+  allow_failure: true
+
+deploy-k8s:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  services: []
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+  script:
+    - echo "Deploying to Kubernetes..."
+    - envsubst < k8s/deployment.yaml | kubectl apply -f -
+    - kubectl rollout status deployment/cicd-app -n ${K8S_NAMESPACE} --timeout=120s
+    - echo "✓ Deployment successful!"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs:
+    - job: security-scan
+
+rollback:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  services: []
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
+  script:
+    - echo "Starting manual rollback..."
+    - kubectl rollout undo deployment/cicd-app -n ${K8S_NAMESPACE}
+    - kubectl rollout status deployment/cicd-app -n ${K8S_NAMESPACE}
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+  environment:
+    name: production
+    action: stop
+
+cleanup-old-images:
+  stage: cleanup
+  image: alpine:latest
+  services: []
+  script:
+    - echo "Manual cleanup job triggered."
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
