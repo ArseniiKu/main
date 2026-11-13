@@ -1,0 +1,33 @@
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: acid-test-cluster
+  namespace: postgres
+spec:
+  teamId: "acid"
+  volume:
+    size: 1Gi
+    storageClass: local-path
+  numberOfInstances: 2
+  users:
+    app_user:
+      - superuser
+      - createdb
+  databases:
+    appdb: app_user
+  postgresql:
+    version: "15"
+    parameters:
+      synchronous_commit: "on"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+  patroni:
+    initdb:
+      encoding: UTF8
+      locale: en_US.UTF-8
+      data-checksums: "true"

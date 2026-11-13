@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web-stateful
+spec:
+  serviceName: "web-stateful-svc"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-stateful
+  template:
+    metadata:
+      labels:
+        app: web-stateful
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          limits: { cpu: "100m", memory: "128Mi" }
+          requests: { cpu: "50m", memory: "64Mi" }
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html
+      initContainers:
+      - name: init-data
+        image: busybox:1.36
+        command: ['sh', '-c', 'echo "<h1>Node: $(hostname)</h1><p>Persistent Data!</p>" > /usr/share/nginx/html/index.html']
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "local-path"
+      resources:
+        requests:
+          storage: 50Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-stateful-svc
+spec:
+  clusterIP: None
+  selector:
+    app: web-stateful
+  ports:
+  - port: 80
